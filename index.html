@@ -1,0 +1,847 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GBoS GEOAI | Gambia Aeronautical Chart Intelligence</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0/osmtogeojson.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+ --bg:#08131d;--panel:#102331;--panel2:#152c3b;
+ --line:rgba(255,255,255,.1);--text:#edf6f5;--muted:#9bb3b5;
+ --cyan:#65d9e8;--green:#71e0b5;--gold:#f4c779;
+ --orange:#ff9b68;--pink:#efa6c5;--purple:#c1a4ff;
+}
+*{box-sizing:border-box}
+body{
+ margin:0;background:
+ radial-gradient(circle at 10% 0%,rgba(101,217,232,.12),transparent 30%),
+ radial-gradient(circle at 90% 0%,rgba(193,164,255,.10),transparent 30%),
+ var(--bg);color:var(--text);font-family:Arial,sans-serif;
+}
+header{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:15px;padding:14px 19px;background:#08141e;
+ border-bottom:1px solid var(--line);flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+ width:44px;height:44px;border-radius:13px;
+ display:grid;place-items:center;font-size:22px;color:#08202a;
+ background:linear-gradient(135deg,var(--cyan),var(--green),var(--purple));
+}
+.brand h1{font-size:15px;letter-spacing:1px;margin:0}
+.brand h1 span{color:var(--cyan)}
+.brand small{font-size:9px;letter-spacing:1.3px;color:var(--muted)}
+.header-right{display:flex;gap:7px;flex-wrap:wrap}
+.pill{font-size:9px;border:1px solid var(--line);border-radius:30px;padding:8px 10px;color:#d7e8e8}
+.pill b{color:var(--green)}
+main{
+ display:grid;grid-template-columns:minmax(260px,.88fr) minmax(400px,1.45fr) minmax(270px,.9fr);
+ gap:11px;padding:11px;min-height:calc(100vh - 100px);
+}
+.panel{
+ min-width:0;background:rgba(16,35,49,.96);
+ border:1px solid var(--line);border-radius:13px;overflow:hidden;
+ box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+.panel-head{
+ display:flex;justify-content:space-between;align-items:center;
+ padding:13px;border-bottom:1px solid var(--line);
+ font-size:10px;font-weight:bold;letter-spacing:1px;
+ background:linear-gradient(90deg,rgba(101,217,232,.07),transparent);
+}
+.panel-head small{color:var(--green);font-size:9px}
+.panel-body{padding:12px}
+.section{margin-bottom:17px}
+.section-title{
+ color:var(--cyan);font-size:10px;font-weight:bold;
+ letter-spacing:1.1px;margin-bottom:9px;text-transform:uppercase;
+}
+label{display:block;color:var(--muted);font-size:10px;margin:8px 0 5px}
+input,select{
+ width:100%;padding:10px;border:1px solid var(--line);
+ background:#091923;color:var(--text);border-radius:7px;font-size:11px;
+}
+input:focus,select:focus{outline:none;border-color:var(--cyan)}
+button{
+ border:0;border-radius:7px;padding:10px 11px;
+ background:linear-gradient(110deg,var(--cyan),var(--green));
+ color:#06212a;font-weight:bold;font-size:10px;cursor:pointer;
+}
+button:hover{filter:brightness(1.12)}
+button.secondary{background:#1b3443;color:#e8f4f3;border:1px solid var(--line)}
+button.gold{background:linear-gradient(110deg,var(--gold),#ffe2a6);color:#30220c}
+button.purple{background:linear-gradient(110deg,var(--purple),#e2d7ff);color:#241b3d}
+button.full{width:100%;margin-top:7px}
+button:disabled{opacity:.5;cursor:wait}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.check{
+ display:flex;align-items:center;gap:8px;margin:9px 0;
+ font-size:10px;color:#d7e7e7;
+}
+.check input{width:auto;accent-color:var(--cyan)}
+.help{font-size:9px;color:var(--muted);line-height:1.55;margin-top:6px}
+.note{
+ padding:10px;border-left:3px solid var(--gold);
+ background:rgba(244,199,121,.07);color:#e9d8b7;
+ font-size:9px;line-height:1.6;border-radius:5px;margin-top:10px;
+}
+#map{height:calc(100vh - 390px);min-height:380px;border-radius:9px;background:#102330}
+.map-panel{display:flex;flex-direction:column}
+.map-panel .panel-body{flex:1}
+.map-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.map-controls select{min-width:0}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{
+ border:1px solid var(--line);border-radius:9px;padding:11px;
+ background:linear-gradient(140deg,rgba(255,255,255,.07),rgba(255,255,255,.015));
+}
+.kpi span{display:block;color:var(--muted);font-size:9px}
+.kpi strong{display:block;font-size:23px;margin:7px 0}
+.kpi small{color:var(--green);font-size:9px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:9px;color:#d9e7e7}
+.swatch{width:11px;height:11px;border-radius:50%;flex:none}
+.line-swatch{width:18px;height:3px;border-radius:2px;flex:none}
+.chartbox{
+ border:1px solid var(--line);border-radius:9px;
+ padding:9px;background:#0a1923;margin:10px 0;
+}
+.chartbox canvas{max-height:190px}
+.status{
+ white-space:pre-wrap;overflow:auto;max-height:170px;
+ padding:10px;background:#081821;border:1px solid var(--line);
+ border-radius:8px;color:#c5d9d8;font-size:9px;line-height:1.6;
+}
+.data-table{width:100%;border-collapse:collapse;font-size:9px}
+.data-table th,.data-table td{
+ padding:7px 5px;border-bottom:1px solid var(--line);
+ text-align:left;vertical-align:top;
+}
+.data-table th{color:var(--cyan);position:sticky;top:0;background:#102331}
+.table-wrap{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.feature-count{font-size:9px;color:var(--muted);margin:6px 0}
+.source-link{color:var(--cyan);font-size:10px;text-decoration:none}
+.source-link:hover{text-decoration:underline}
+footer{
+ text-align:center;color:var(--muted);font-size:9px;
+ border-top:1px solid var(--line);padding:14px;line-height:1.8;
+}
+footer strong{color:var(--green)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#153040;color:#eef7f5}
+.leaflet-popup-content{font-size:11px;line-height:1.6}
+.leaflet-control-layers{background:#102331!important;color:white!important}
+@media(max-width:1100px){
+ main{grid-template-columns:1fr}
+ #map{height:520px}
+}
+@media(min-width:1101px){
+ main{height:calc(100vh - 100px);min-height:850px}
+ main>.panel{overflow-y:auto}
+}
+</style>
+</head>
+
+<body>
+<header>
+ <div class="brand">
+  <div class="logo">✈</div>
+  <div>
+   <h1>GBoS GEOAI <span>| AERONAUTICAL INTELLIGENCE</span></h1>
+   <small>THE GAMBIA • AERONAUTICAL CHARTING & AIRSPACE MAPPING</small>
+  </div>
+ </div>
+ <div class="header-right">
+  <div class="pill">● <b id="connection">CONNECTING</b></div>
+  <div class="pill">ONLINE DATA SOURCES</div>
+  <div class="pill">WGS84 / EPSG:4326</div>
+ </div>
+</header>
+
+<main>
+
+<!-- LEFT -->
+<section class="panel">
+ <div class="panel-head"><span>01 • DATA & LAYERS</span><small>LIVE SOURCES</small></div>
+ <div class="panel-body">
+
+  <div class="section">
+   <div class="section-title">Data source controls</div>
+   <button class="full" id="loadAll">↻ LOAD / REFRESH ONLINE DATA</button>
+   <div class="help">Retrieves airport, runway and navigation-aid records from OurAirports, and mapped aerodrome features from OpenStreetMap.</div>
+   <div class="feature-count" id="lastUpdated">Not yet loaded</div>
+  </div>
+
+  <div class="section">
+   <div class="section-title">Map layers</div>
+   <label class="check"><input type="checkbox" id="lyAirports" checked> Airports / aerodromes</label>
+   <label class="check"><input type="checkbox" id="lyRunways" checked> Runways</label>
+   <label class="check"><input type="checkbox" id="lyNavaids" checked> Navigation aids</label>
+   <label class="check"><input type="checkbox" id="lyOSM" checked> OSM aerodrome infrastructure</label>
+   <label class="check"><input type="checkbox" id="lyBoundary" checked> Gambia national boundary (OSM)</label>
+   <label class="check"><input type="checkbox" id="lyControl" checked> Banjul 20 NM reference circle</label>
+   <label class="check"><input type="checkbox" id="lyLabels"> Feature labels</label>
+  </div>
+
+  <div class="section">
+   <div class="section-title">Feature filters</div>
+   <label>Feature category</label>
+   <select id="category">
+    <option value="all">All categories</option>
+    <option value="airport">Airports</option>
+    <option value="runway">Runways</option>
+    <option value="navaid">Navigation aids</option>
+    <option value="osm">OSM aerodrome features</option>
+   </select>
+   <label>Search feature</label>
+   <input id="search" placeholder="Search name, ICAO, ident, type...">
+   <button class="full secondary" id="clearSearch">CLEAR SEARCH</button>
+  </div>
+
+  <div class="section">
+   <div class="section-title">Map configuration</div>
+   <label>Basemap</label>
+   <select id="basemap">
+    <option value="street">OpenStreetMap</option>
+    <option value="satellite">Esri Satellite</option>
+    <option value="terrain">OpenTopoMap</option>
+    <option value="dark">Carto Dark</option>
+   </select>
+   <div class="grid2">
+    <button class="secondary" id="zoomGambia">ZOOM TO GAMBIA</button>
+    <button class="secondary" id="zoomBanjul">ZOOM TO BANJUL</button>
+   </div>
+  </div>
+
+  <div class="section">
+   <div class="section-title">Export data</div>
+   <button class="full" id="exportGeoJSON">DOWNLOAD GEOJSON</button>
+   <button class="full secondary" id="exportCSV">DOWNLOAD FEATURE CSV</button>
+   <button class="full gold" id="exportReport">DOWNLOAD DATA REPORT</button>
+  </div>
+
+  <div class="section">
+   <div class="section-title">Official aeronautical information</div>
+   <p><a class="source-link" href="https://gcaa.aero/air-navigation-services/" target="_blank" rel="noopener">GCAA – Air Navigation Services ↗</a></p>
+   <p><a class="source-link" href="https://eaip.gcaa.aero/eaip-gambia/html/" target="_blank" rel="noopener">Gambia eAIP portal ↗</a></p>
+   <p><a class="source-link" href="https://gcaa.aero/" target="_blank" rel="noopener">Gambia Civil Aviation Authority ↗</a></p>
+   <p><a class="source-link" href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports data ↗</a></p>
+   <p><a class="source-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap ↗</a></p>
+  </div>
+
+  <div class="note">
+   This is a GIS research and visualization application. It is not an official AIP, navigation database, flight-planning system or instrument procedure chart.
+  </div>
+ </div>
+</section>
+
+<!-- CENTRE -->
+<section class="panel map-panel">
+ <div class="panel-head"><span>02 • INTERACTIVE AERONAUTICAL MAP</span><small id="mapStatus">WAITING FOR DATA</small></div>
+ <div class="panel-body">
+  <div class="map-controls">
+   <select id="mapStyle">
+    <option value="street">Street map</option>
+    <option value="satellite">Satellite</option>
+    <option value="terrain">Terrain</option>
+    <option value="dark">Dark map</option>
+   </select>
+   <button class="secondary" id="fitAll">FIT DATA</button>
+   <button class="secondary" id="refresh">REFRESH</button>
+  </div>
+  <div id="map"></div>
+  <div class="help">
+   Geographic reference: WGS84. Click any mapped feature to inspect its available attributes and data source.
+  </div>
+
+  <div class="section-title" style="margin-top:16px">Map legend</div>
+  <div class="legend">
+   <div class="legend-item"><span class="swatch" style="background:#65d9e8"></span> Airport / aerodrome</div>
+   <div class="legend-item"><span class="line-swatch" style="background:#ff9b68"></span> Runway</div>
+   <div class="legend-item"><span class="swatch" style="background:#c1a4ff"></span> Navigation aid</div>
+   <div class="legend-item"><span class="line-swatch" style="background:#71e0b5"></span> Taxiway / apron</div>
+   <div class="legend-item"><span class="line-swatch" style="background:#f4c779"></span> National boundary</div>
+   <div class="legend-item"><span class="line-swatch" style="background:#efa6c5"></span> 20 NM reference circle</div>
+  </div>
+
+  <div class="section-title" style="margin-top:16px">Selected feature information</div>
+  <div class="status" id="featureInfo">Select a feature on the map to view its attributes.</div>
+ </div>
+</section>
+
+<!-- RIGHT -->
+<section class="panel">
+ <div class="panel-head"><span>03 • SPATIAL ANALYTICS</span><small>LIVE INVENTORY</small></div>
+ <div class="panel-body">
+  <div class="kpis">
+   <div class="kpi"><span>AIRPORTS</span><strong id="kAirports">0</strong><small>OurAirports</small></div>
+   <div class="kpi"><span>RUNWAYS</span><strong id="kRunways">0</strong><small>OurAirports</small></div>
+   <div class="kpi"><span>NAVAIDS</span><strong id="kNavaids">0</strong><small>OurAirports</small></div>
+   <div class="kpi"><span>OSM FEATURES</span><strong id="kOSM">0</strong><small>OpenStreetMap</small></div>
+   <div class="kpi"><span>BOUNDARY FEATURES</span><strong id="kBoundary">0</strong><small>OSM</small></div>
+   <div class="kpi"><span>VISIBLE FEATURES</span><strong id="kVisible">0</strong><small>Current filter</small></div>
+  </div>
+
+  <div class="section-title" style="margin-top:17px">Feature distribution</div>
+  <div class="chartbox"><canvas id="categoryChart"></canvas></div>
+
+  <div class="section-title">Airport inventory</div>
+  <div class="table-wrap">
+   <table class="data-table">
+    <thead><tr><th>Airport</th><th>ICAO / Ident</th><th>Type</th></tr></thead>
+    <tbody id="airportTable"><tr><td colspan="3">Waiting for online data...</td></tr></tbody>
+   </table>
+  </div>
+
+  <div class="section-title" style="margin-top:15px">Runway inventory</div>
+  <div class="table-wrap">
+   <table class="data-table">
+    <thead><tr><th>Airport</th><th>Runway</th><th>Length</th></tr></thead>
+    <tbody id="runwayTable"><tr><td colspan="3">Waiting for data...</td></tr></tbody>
+   </table>
+  </div>
+
+  <div class="section-title" style="margin-top:15px">Data loading log</div>
+  <div class="status" id="log">Application initialized.
+Waiting for online data services...</div>
+
+  <div class="note">
+   Missing ATS routes, FIR, TMA, CTR boundaries, SID/STAR, ILS procedures and official chart data are not inferred from the absence of online features. They must be obtained from the current Gambia eAIP and verified against the relevant AIRAC cycle.
+  </div>
+ </div>
+</section>
+</main>
+
+<footer>
+ <strong>Produced by Ansu Singhateh</strong> | GIS Analyst | GIS / Cartography Unit | Gambia Bureau of Statistics
+ <br>GBoS GEOAI • Research and educational use
+ <br>Data sources: GCAA • OurAirports • OpenStreetMap
+</footer>
+
+<script>
+/* =========================================================
+   GAMBIA AERONAUTICAL CHART INTELLIGENCE
+   Online data retrieval; no local data uploads required.
+========================================================= */
+
+const $=id=>document.getElementById(id);
+
+const DATA={
+ airports:'https://davidmegginson.github.io/ourairports-data/airports.csv',
+ runways:'https://davidmegginson.github.io/ourairports-data/runways.csv',
+ navaids:'https://davidmegginson.github.io/ourairports-data/navaids.csv'
+};
+
+const BBOX={south:13.0,west:-17.3,north:13.95,east:-13.6};
+
+const state={
+ airports:[],runways:[],navaids:[],osm:[],boundary:[],
+ allFeatures:[],visibleFeatures:[],loaded:false,chart:null,
+ layers:{},map:null,marker:null,controlCircle:null
+};
+
+function log(msg){
+ $('log').textContent=new Date().toLocaleTimeString()+' — '+msg+'\n'+$('log').textContent;
+}
+function safe(v){
+ return String(v??'').replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ }[c]));
+}
+function num(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+function count(id,n){$(id).textContent=Number(n||0).toLocaleString();}
+function download(content,name,type){
+ const blob=content instanceof Blob?content:new Blob([content],{type});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function feature(name,type,coords,properties,source){
+ return {
+  type:'Feature',
+  geometry:{type,coordinates:coords},
+  properties:{name,type_label:type,source,...properties}
+ };
+}
+
+/* MAP */
+const map=L.map('map',{preferCanvas:true}).setView([13.45,-16.58],8);
+state.map=map;
+
+const basemaps={
+ street:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,attribution:'© OpenStreetMap contributors'
+ }),
+ satellite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19,attribution:'© Esri'
+ }),
+ terrain:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{
+  maxZoom:17,attribution:'© OpenTopoMap'
+ }),
+ dark:L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  maxZoom:19,attribution:'© CARTO'
+ })
+};
+basemaps.street.addTo(map);
+$('basemap').onchange=e=>setBasemap(e.target.value);
+$('mapStyle').onchange=e=>{$('basemap').value=e.target.value;setBasemap(e.target.value);};
+function setBasemap(key){
+ Object.values(basemaps).forEach(l=>map.removeLayer(l));
+ basemaps[key].addTo(map);
+}
+$('zoomGambia').onclick=()=>map.fitBounds([[13.0,-17.3],[13.95,-13.6]]);
+$('zoomBanjul').onclick=()=>map.setView([13.338,-16.652],12);
+$('fitAll').onclick=fitData;
+$('refresh').onclick=loadAll;
+
+/* LAYER GROUPS */
+['airports','runways','navaids','osm','boundary','control'].forEach(k=>{
+ state.layers[k]=L.featureGroup().addTo(map);
+});
+function clearLayers(){
+ Object.values(state.layers).forEach(l=>l.clearLayers());
+}
+function popupHTML(p){
+ let html='<b>'+safe(p.name||p.ident||p.ref||'Mapped feature')+'</b><hr style="border-color:#456">';
+ Object.entries(p).forEach(([k,v])=>{
+  if(v===null||v===undefined||v==='')return;
+  html+='<div><b>'+safe(k.replaceAll('_',' '))+':</b> '+safe(v)+'</div>';
+ });
+ return html;
+}
+function pointStyle(kind){
+ const colors={airport:'#65d9e8',navaid:'#c1a4ff',osm:'#71e0b5'};
+ return {radius:7,color:'#06151d',weight:1,fillColor:colors[kind]||'#ffffff',fillOpacity:.95};
+}
+function addPoint(layer,lat,lon,p,kind){
+ if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+ const m=L.circleMarker([lat,lon],pointStyle(kind));
+ m.bindPopup(popupHTML(p));
+ m.on('click',()=>showFeature(p));
+ if($('lyLabels').checked&&p.name)m.bindTooltip(p.name,{direction:'top'});
+ m.addTo(layer);
+}
+function showFeature(p){
+ $('featureInfo').textContent=Object.entries(p)
+  .map(([k,v])=>k+': '+(v??'')).join('\n');
+}
+function addLine(layer,coords,p,color,width=3){
+ if(!coords||coords.length<2)return;
+ const l=L.polyline(coords,{color,weight:width,opacity:.9});
+ l.bindPopup(popupHTML(p));
+ l.on('click',()=>showFeature(p));
+ l.addTo(layer);
+}
+function addPolygon(layer,coords,p,color){
+ const l=L.polygon(coords,{color,weight:2,fillColor:color,fillOpacity:.07});
+ l.bindPopup(popupHTML(p));l.on('click',()=>showFeature(p));l.addTo(layer);
+}
+
+/* ONLINE CSV */
+async function fetchCSV(url,label){
+ log('Downloading '+label+'...');
+ const response=await fetch(url,{cache:'no-store'});
+ if(!response.ok)throw new Error(label+' HTTP '+response.status);
+ const text=await response.text();
+ const parsed=Papa.parse(text,{header:true,skipEmptyLines:true,dynamicTyping:false});
+ if(parsed.errors?.length)log(label+' CSV warnings: '+parsed.errors.length);
+ log(label+': '+parsed.data.length.toLocaleString()+' records received.');
+ return parsed.data;
+}
+
+/* AIRPORTS */
+function processAirports(rows){
+ state.airports=rows.filter(r=>
+  String(r.iso_country||'').toUpperCase()==='GM'&&
+  num(r.latitude_deg)!==null&&num(r.longitude_deg)!==null
+ ).map(r=>({
+  type:'Feature',
+  geometry:{type:'Point',coordinates:[Number(r.longitude_deg),Number(r.latitude_deg)]},
+  properties:{
+   name:r.name,ident:r.ident,icao_code:r.icao_code,iata_code:r.iata_code,
+   type:r.type,municipality:r.municipality,elevation_ft:r.elevation_ft,
+   scheduled_service:r.scheduled_service,source:'OurAirports'
+  }
+ }));
+}
+
+/* RUNWAYS */
+function processRunways(rows){
+ const airports=new Map(state.airports.map(f=>[
+  f.properties.ident,f.properties.name
+ ]));
+ state.runways=rows.filter(r=>{
+  const lat1=num(r.le_latitude_deg),lon1=num(r.le_longitude_deg);
+  const lat2=num(r.he_latitude_deg),lon2=num(r.he_longitude_deg);
+  return airports.has(r.airport_ident)&&lat1!==null&&lon1!==null&&lat2!==null&&lon2!==null;
+ }).map(r=>({
+  type:'Feature',
+  geometry:{type:'LineString',coordinates:[
+   [Number(r.le_longitude_deg),Number(r.le_latitude_deg)],
+   [Number(r.he_longitude_deg),Number(r.he_latitude_deg)]
+  ]},
+  properties:{
+   name:airports.get(r.airport_ident),airport_ident:r.airport_ident,
+   runway:r.le_ident+'/'+r.he_ident,length_ft:r.length_ft,
+   width_ft:r.width_ft,surface:r.surface,lighted:r.lighted,
+   closed:r.closed,source:'OurAirports'
+  }
+ }));
+}
+
+/* NAVAIDS */
+function processNavaids(rows){
+ state.navaids=rows.filter(r=>{
+  const lat=num(r.latitude_deg),lon=num(r.longitude_deg);
+  return lat!==null&&lon!==null&&
+   lat>=BBOX.south&&lat<=BBOX.north&&lon>=BBOX.west&&lon<=BBOX.east;
+ }).map(r=>({
+  type:'Feature',
+  geometry:{type:'Point',coordinates:[Number(r.longitude_deg),Number(r.latitude_deg)]},
+  properties:{
+   name:r.name,ident:r.ident,type:r.type,frequency_khz:r.frequency_khz,
+   frequency_mhz:r.frequency_mhz,associated_airport:r.associated_airport,
+   source:'OurAirports'
+  }
+ }));
+}
+
+/* OPENSTREETMAP OVERPASS */
+const overpassServers=[
+ 'https://overpass-api.de/api/interpreter',
+ 'https://overpass.kumi.systems/api/interpreter',
+ 'https://overpass.private.coffee/api/interpreter'
+];
+async function overpassQuery(query){
+ let lastError;
+ for(const endpoint of overpassServers){
+  try{
+   log('Querying OpenStreetMap: '+new URL(endpoint).hostname);
+   const controller=new AbortController();
+   const timeout=setTimeout(()=>controller.abort(),90000);
+   const res=await fetch(endpoint,{
+    method:'POST',body:query,signal:controller.signal,
+    headers:{'Content-Type':'text/plain;charset=UTF-8'}
+   });
+   clearTimeout(timeout);
+   if(!res.ok)throw new Error('Overpass HTTP '+res.status);
+   return await res.json();
+  }catch(e){lastError=e;log('Endpoint unavailable: '+e.message);}
+ }
+ throw lastError||new Error('All Overpass endpoints failed.');
+}
+async function loadOSM(){
+ const {south,west,north,east}=BBOX;
+ const bbox=`${south},${west},${north},${east}`;
+ const query=`
+ [out:json][timeout:60];
+ (
+  node["aeroway"](${bbox});
+  way["aeroway"](${bbox});
+  relation["aeroway"](${bbox});
+  node["aviation"](${bbox});
+  way["aviation"](${bbox});
+  node["aeronautical"](${bbox});
+  way["aeronautical"](${bbox});
+  relation["aeronautical"](${bbox});
+  relation["boundary"="administrative"]["admin_level"="2"]["name"~"Gambia",i](${bbox});
+ );
+ out body;
+ >;
+ out skel qt;`;
+ const data=await overpassQuery(query);
+ const geo=osmtogeojson(data);
+ const features=geo.features||[];
+ state.osm=[];
+ state.boundary=[];
+ features.forEach(f=>{
+  const p=f.properties||{},tags=p.tags||{};
+  const boundary=tags.boundary==='administrative'&&tags.admin_level==='2';
+  if(boundary){state.boundary.push(f);return;}
+  const aeroway=tags.aeroway||'';
+  const aviation=tags.aviation||'';
+  const aeronautical=tags.aeronautical||'';
+  if(!aeroway&&!aviation&&!aeronautical)return;
+  f.properties={
+   name:tags.name||tags.ref||tags.aeroway||'Aeronautical feature',
+   aeroway,aviation,aeronautical,ref:tags.ref||'',
+   operator:tags.operator||'',icao:tags.icao||'',
+   source:'OpenStreetMap',osm_type:p.type||'',osm_id:p.id||''
+  };
+  state.osm.push(f);
+ });
+ log('OpenStreetMap: '+state.osm.length+' aeronautical features; '+state.boundary.length+' boundary features.');
+}
+
+/* Banjul control-zone reference */
+function addControlCircle(){
+ const banjul=state.airports.find(f=>
+  f.properties.ident==='GBYD'||f.properties.icao_code==='GBYD'
+ );
+ if(!banjul)return;
+ const [lon,lat]=banjul.geometry.coordinates;
+ // 20 NM = 37,040 metres. This circle visualizes GCAA's published radius
+ // and is not a substitute for an AIP-defined lateral boundary.
+ const circle=L.circle([lat,lon],{
+  radius:37040,color:'#efa6c5',weight:2,dashArray:'7 7',
+  fillColor:'#efa6c5',fillOpacity:.035
+ }).bindPopup(
+  '<b>Banjul 20 NM reference circle</b><br>'+
+  'Radius: 20 nautical miles (37,040 m)<br>'+
+  'Source: GCAA Air Navigation Services page.<br>'+
+  'Illustrative circle only. Confirm current airspace geometry and vertical limits in the eAIP.'
+ );
+ circle.addTo(state.layers.control);
+}
+
+/* BUILD MAP */
+function buildMap(){
+ clearLayers();
+ state.airports.forEach(f=>{
+  const [lon,lat]=f.geometry.coordinates;
+  addPoint(state.layers.airports,lat,lon,f.properties,'airport');
+ });
+ state.runways.forEach(f=>{
+  const coords=f.geometry.coordinates.map(c=>[c[1],c[0]]);
+  addLine(state.layers.runways,coords,f.properties,'#ff9b68',4);
+ });
+ state.navaids.forEach(f=>{
+  const [lon,lat]=f.geometry.coordinates;
+  addPoint(state.layers.navaids,lat,lon,f.properties,'navaid');
+ });
+ state.osm.forEach(f=>{
+  const p=f.properties||{},g=f.geometry;
+  if(!g)return;
+  const kind=p.aeroway||p.aviation||p.aeronautical||'feature';
+  const color=kind==='runway'?'#ff9b68':
+   kind==='taxiway'||kind==='apron'?'#71e0b5':'#65d9e8';
+  if(g.type==='Point'){
+   const [lon,lat]=g.coordinates;
+   addPoint(state.layers.osm,lat,lon,p,'osm');
+  }else if(g.type==='LineString'){
+   addLine(state.layers.osm,g.coordinates.map(c=>[c[1],c[0]]),p,color,kind==='runway'?3:2);
+  }else if(g.type==='MultiLineString'){
+   g.coordinates.forEach(line=>addLine(state.layers.osm,line.map(c=>[c[1],c[0]]),p,color,2));
+  }else if(g.type==='Polygon'){
+   addPolygon(state.layers.osm,g.coordinates[0].map(c=>[c[1],c[0]]),p,color);
+  }else if(g.type==='MultiPolygon'){
+   g.coordinates.forEach(poly=>addPolygon(state.layers.osm,poly[0].map(c=>[c[1],c[0]]),p,color));
+  }
+ });
+ state.boundary.forEach(f=>{
+  const g=f.geometry;if(!g)return;
+  const p={...f.properties,name:f.properties?.tags?.name||'The Gambia administrative boundary',source:'OpenStreetMap'};
+  const addRing=ring=>addPolygon(state.layers.boundary,ring.map(c=>[c[1],c[0]]),p,'#f4c779');
+  if(g.type==='Polygon')g.coordinates.forEach(addRing);
+  if(g.type==='MultiPolygon')g.coordinates.forEach(poly=>poly.forEach(addRing));
+ });
+ addControlCircle();
+ applyLayerVisibility();
+ fitData();
+}
+
+/* FILTERS AND VISIBILITY */
+function applyLayerVisibility(){
+ const pairs=[
+  ['lyAirports','airports'],['lyRunways','runways'],
+  ['lyNavaids','navaids'],['lyOSM','osm'],
+  ['lyBoundary','boundary'],['lyControl','control']
+ ];
+ pairs.forEach(([id,key])=>{
+  if($(id).checked){if(!map.hasLayer(state.layers[key]))state.layers[key].addTo(map);}
+  else map.removeLayer(state.layers[key]);
+ });
+ updateVisible();
+}
+pairsEvents();
+function pairsEvents(){
+ ['lyAirports','lyRunways','lyNavaids','lyOSM','lyBoundary','lyControl'].forEach(id=>{
+  $(id).onchange=applyLayerVisibility;
+ });
+ $('lyLabels').onchange=()=>{if(state.loaded)buildMap();};
+}
+function allFeatureList(){
+ const arr=[];
+ state.airports.forEach(f=>arr.push({...f,properties:{...f.properties,category:'airport'}}));
+ state.runways.forEach(f=>arr.push({...f,properties:{...f.properties,category:'runway'}}));
+ state.navaids.forEach(f=>arr.push({...f,properties:{...f.properties,category:'navaid'}}));
+ state.osm.forEach(f=>arr.push({...f,properties:{...f.properties,category:'osm'}}));
+ state.boundary.forEach(f=>arr.push({...f,properties:{...f.properties,category:'boundary'}}));
+ return arr;
+}
+function updateVisible(){
+ const category=$('category').value;
+ const q=$('search').value.toLowerCase().trim();
+ state.visibleFeatures=allFeatureList().filter(f=>{
+  const p=f.properties||{};
+  if(category!=='all'&&p.category!==category)return false;
+  if(q&&!JSON.stringify(p).toLowerCase().includes(q))return false;
+  return true;
+ });
+ count('kVisible',state.visibleFeatures.length);
+}
+$('category').onchange=updateVisible;
+$('search').oninput=updateVisible;
+$('clearSearch').onclick=()=>{$('search').value='';$('category').value='all';updateVisible();};
+
+/* FIT */
+function fitData(){
+ const bounds=L.latLngBounds([]);
+ Object.values(state.layers).forEach(layer=>{
+  if(map.hasLayer(layer)&&layer.getLayers().length){
+   try{bounds.extend(layer.getBounds());}catch(e){}
+  }
+ });
+ if(bounds.isValid())map.fitBounds(bounds.pad(.08));
+ else map.fitBounds([[13.0,-17.3],[13.95,-13.6]]);
+}
+
+/* TABLES AND CHARTS */
+function renderTables(){
+ $('airportTable').innerHTML=state.airports.length?state.airports.map(f=>{
+  const p=f.properties;
+  return `<tr><td>${safe(p.name)}</td><td>${safe(p.icao_code||p.ident)}</td><td>${safe(p.type)}</td></tr>`;
+ }).join(''):'<tr><td colspan="3">No airport records returned.</td></tr>';
+
+ $('runwayTable').innerHTML=state.runways.length?state.runways.map(f=>{
+  const p=f.properties;
+  return `<tr><td>${safe(p.name)}</td><td>${safe(p.runway)}</td><td>${safe(p.length_ft||'—')} ft</td></tr>`;
+ }).join(''):'<tr><td colspan="3">No runway records returned.</td></tr>';
+}
+function renderChart(){
+ if(state.chart)state.chart.destroy();
+ state.chart=new Chart($('categoryChart'),{
+  type:'doughnut',
+  data:{
+   labels:['Airports','Runways','Navaids','OSM features'],
+   datasets:[{data:[state.airports.length,state.runways.length,state.navaids.length,state.osm.length],
+    backgroundColor:['#65d9e8','#ff9b68','#c1a4ff','#71e0b5'],
+    borderColor:'#102331',borderWidth:3}]
+  },
+  options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#dcebea',font:{size:9},padding:12}}}}
+ });
+}
+function updateKPIs(){
+ count('kAirports',state.airports.length);
+ count('kRunways',state.runways.length);
+ count('kNavaids',state.navaids.length);
+ count('kOSM',state.osm.length);
+ count('kBoundary',state.boundary.length);
+ updateVisible();
+ renderTables();renderChart();
+}
+
+/* LOAD ALL ONLINE DATA */
+async function loadAll(){
+ $('loadAll').disabled=true;
+ $('connection').textContent='LOADING';
+ $('mapStatus').textContent='FETCHING DATA';
+ log('Starting online data retrieval...');
+ const tasks=[
+  fetchCSV(DATA.airports,'OurAirports airports'),
+  fetchCSV(DATA.runways,'OurAirports runways'),
+  fetchCSV(DATA.navaids,'OurAirports navaids'),
+  loadOSM()
+ ];
+ const results=await Promise.allSettled(tasks);
+ try{
+  if(results[0].status==='fulfilled')processAirports(results[0].value);
+  else log('Airport CSV failed: '+results[0].reason.message);
+  if(results[1].status==='fulfilled')processRunways(results[1].value);
+  else log('Runway CSV failed: '+results[1].reason.message);
+  if(results[2].status==='fulfilled')processNavaids(results[2].value);
+  else log('Navaid CSV failed: '+results[2].reason.message);
+  if(results[3].status==='rejected')log('OSM query failed: '+results[3].reason.message);
+
+  state.loaded=true;
+  buildMap();updateKPIs();
+  const good=results.filter(r=>r.status==='fulfilled').length;
+  $('connection').textContent=good===4?'ONLINE':'PARTIAL';
+  $('mapStatus').textContent=good===4?'DATA LOADED':'PARTIAL DATA';
+  $('lastUpdated').textContent='Last retrieval: '+new Date().toLocaleString();
+  log('Online retrieval completed. '+good+' of 4 source tasks succeeded.');
+  if(!state.airports.length)log('No Gambia airport records returned. Check CSV availability and browser network access.');
+ }finally{
+  $('loadAll').disabled=false;
+ }
+}
+
+/* EXPORTS */
+function geoJSONExport(){
+ const features=allFeatureList();
+ // Include an explicitly indicative Banjul reference circle.
+ const banjul=state.airports.find(f=>f.properties.ident==='GBYD'||f.properties.icao_code==='GBYD');
+ if(banjul){
+  const [lon,lat]=banjul.geometry.coordinates;
+  features.push({
+   type:'Feature',
+   geometry:{type:'Point',coordinates:[lon,lat]},
+   properties:{
+    name:'Banjul 20 NM reference centre',
+    radius_nm:20,radius_m:37040,
+    source:'GCAA Air Navigation Services page',
+    status:'Illustrative reference; not an official CTR boundary'
+   }
+  });
+ }
+ return {type:'FeatureCollection',name:'Gambia_Aeronautical_Inventory',features};
+}
+$('exportGeoJSON').onclick=()=>{
+ if(!state.loaded){alert('Load online data first.');return;}
+ download(JSON.stringify(geoJSONExport(),null,2),'Gambia_Aeronautical_Inventory.geojson','application/geo+json');
+};
+$('exportCSV').onclick=()=>{
+ if(!state.loaded){alert('Load online data first.');return;}
+ const rows=allFeatureList().map(f=>{
+  const p=f.properties||{},g=f.geometry;
+  const coord=g.type==='Point'?g.coordinates.join(' '):'';
+  return{
+   category:p.category,name:p.name||'',ident:p.ident||p.icao_code||'',
+   feature_type:p.type||p.aeroway||p.aviation||'',
+   airport_ident:p.airport_ident||'',runway:p.runway||'',
+   length_ft:p.length_ft||'',frequency_mhz:p.frequency_mhz||'',
+   latitude:g.type==='Point'?g.coordinates[1]:'',
+   longitude:g.type==='Point'?g.coordinates[0]:'',
+   source:p.source||''
+  };
+ });
+ download(Papa.unparse(rows),'Gambia_Aeronautical_Features.csv','text/csv');
+};
+$('exportReport').onclick=()=>{
+ const report=[
+  'GAMBIA AERONAUTICAL CHART INTELLIGENCE',
+  'Generated: '+new Date().toISOString(),
+  'Airports: '+state.airports.length,
+  'Runways: '+state.runways.length,
+  'Navigation aids: '+state.navaids.length,
+  'OSM aeronautical features: '+state.osm.length,
+  'OSM boundary features: '+state.boundary.length,
+  '',
+  'Sources:',
+  DATA.airports,DATA.runways,DATA.navaids,
+  'https://overpass-api.de/api/interpreter',
+  'https://gcaa.aero/air-navigation-services/',
+  '',
+  'LIMITATION: Not an official AIP or operational aeronautical chart.',
+  'Verify all coordinates, procedures, airspace boundaries and frequencies against current Gambia eAIP and NOTAMs.'
+ ].join('\n');
+ download(report,'Gambia_Aeronautical_Data_Report.txt','text/plain');
+};
+
+/* INITIALIZATION */
+$('loadAll').onclick=loadAll;
+$('refresh').onclick=loadAll;
+$('fitAll').onclick=fitData;
+
+loadAll();
+</script>
+</body>
+</html>
